@@ -1,6 +1,30 @@
 import express from 'express';
 const router = express.Router();
 import Product from '../models/product.js';
+import mongoose from 'mongoose';
+import multer from 'multer';
+import { GridFsStorage } from 'multer-gridfs-storage';
+import dotenv from "dotenv";
+dotenv.config();
+
+// Create a connection to MongoDB using Mongoose
+mongoose.connect(process.env.MONGO_URL, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+});
+const db = mongoose.connection;
+const storage = new GridFsStorage({
+  db, // Replace with your MongoDB connection URL
+  options: { useNewUrlParser: true, useUnifiedTopology: true },
+  file: (req, file) => {
+    // Generate a unique filename for the image using the book's title
+    return{
+      filename: `${Date.now()}-file-${file.originalname}`,
+    }
+  },
+});
+
+const upload = multer({ storage });
 
 router.get('/:id', async (req, res) => {
   try {
@@ -40,19 +64,22 @@ router.get('/', async (req, res) => {
 
 
 // POST API endpoint to create a new Product
-router.post('/', async (req, res) => {
+router.post('/', upload.single('image'), async (req, res) => {
   const created_at = new Date();
   const updated_at = new Date();
   const is_active = true;
 
   try {
-    const { category_id, product_image, product_quantity, product_name, product_description } = req.body;
+    const data = JSON.parse(req.body.data);
+    const { category_id, product_image, product_quantity, product_name, product_description } = data;
     const newProduct = new Product({
       category_id, product_image, product_quantity,
       product_name, product_description, is_active, created_at, updated_at
     });
+    if (req.file) {
+      newProduct.image = req.file.id;
+    }
     const savedProduct = await newProduct.save();
-    console.log(savedProduct);
     res.status(201).json(savedProduct);
   } catch (err) {
     req.log.error('Error creating a new Product:', err.message);
