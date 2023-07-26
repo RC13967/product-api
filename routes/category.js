@@ -6,30 +6,33 @@ import Product from '../models/product.js';
 router.get('/:id', async (req, res) => {
   const id = req.params.id;
   try {
-    const category = await Category.findById(id);
+    const category = await Category.findOne({
+      _id:id,
+      is_active:true
+    });
     if (!category) {
-      return res.status(404).json({ error: 'Category not found' });
+      return res.status(404).json({ error: 'No active categories available' });
     }
     res.json(category);
   } catch (err) {
-    req.log.error('Error finding Category by ID:', err.message);
+    req.log.error('Error finding Category:', err.message);
     res.status(500).json({ error: 'Something went wrong' });
   }
 });
 // GET API endpoint to fetch all Categorys
 router.get('/', async (req, res) => {
   try {
-    const categories = await Category.find();
+    const categories = await Category.find({is_active:true});
     if (categories.length > 0) {
       res.json(categories);
     }
     else {
-      let message = "There are no items in this category";
+      let message = "There are no active categories";
       res.status(404).json({ error: message });
     }
 
   } catch (err) {
-    req.log.error('Error fetching Categorys:', err.message); // Log errors with pino
+    req.log.error('Error fetching Categories:', err.message); // Log errors with pino
     res.status(500).json({ error: 'Something went wrong' });
   }
 });
@@ -62,7 +65,7 @@ router.put('/:id', async (req, res) => {
   try {
     const { category_name, category_description, is_active } = req.body;
     let updatedProducts;
-    if(typeof(is_active) == 'boolean'){ //if the status of category changes, change all products status
+    if(is_active === false){ //if the status of category changes, change all products status
       updatedProducts = await Product.updateMany(
         {category_id:category_id},
         { category_name, category_description, updated_at, is_active },

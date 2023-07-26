@@ -4,25 +4,30 @@ import Product from '../models/product.js';
 
 router.get('/:id', async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id)
+    const product = await Product.findOne({
+      _id:req.params.id,
+      is_active:true
+    })
     if (!product) {
-      return res.status(404).json({ error: 'Product not found' });
+      return res.status(404).json({ error: 'No active Products available' });
     }
     res.json(product);
   } catch (err) {
-    req.log.error('Error finding Product by ID:', err.message);
+    req.log.error('Error finding products:', err.message);
     res.status(500).json({ error: 'Something went wrong' });
   }
 });
 // GET API endpoint to fetch all Products
 router.get('/', async (req, res) => {
   try {
-    const products = await Product.find();
+    const products = await Product.find({
+      is_active:true
+    });
     if (products.length > 0) {
       res.json(products);
     }
     else {
-      let message = "There are no products available";
+      let message = "There are no active products";
       res.status(404).json({ error: message });
     }
 
@@ -60,11 +65,11 @@ router.put('/:id', async (req, res) => {
   const updated_at = new Date();
   try {
     const { category_id, product_image, product_quantity,
-      Product_name, Product_description, is_active } = req.body;
+      product_name, product_description, is_active } = req.body;
     const updatedProduct = await Product.findByIdAndUpdate(
       req.params.id,
       { category_id, product_image, product_quantity,
-        Product_name, Product_description, is_active, updated_at },
+        product_name, product_description, is_active, updated_at },
       { new: true } // Return the updated Product
     );
     res.json(updatedProduct);
