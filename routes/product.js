@@ -5,6 +5,11 @@ import mongoose from 'mongoose';
 import multer from 'multer';
 import { GridFsStorage } from 'multer-gridfs-storage';
 import dotenv from "dotenv";
+import {
+  validateUniqueProductName,
+  validateUniqueProductDescription,
+  validateMandatoryFieldsProduct,
+} from '../middleware.js';
 dotenv.config();
 
 // Create a connection to MongoDB using Mongoose
@@ -103,13 +108,18 @@ router.get('/', async (req, res) => {
 
 
 // POST API endpoint to create a new Product
-router.post('/', upload.single('image'), async (req, res) => {
+router.post('/', 
+upload.single('image'), 
+validateMandatoryFieldsProduct(['product_name', 'product_description', 'product_quantity']),
+validateUniqueProductName,
+validateUniqueProductDescription,
+async (req, res) => {
   const created_at = new Date();
   const updated_at = new Date();
   const is_active = true;
 
   try {
-    const data = JSON.parse(req.body?.data);
+    const data = JSON.parse(req.body.data);
     const { category_id, product_quantity, product_name, product_description } = data;
     const newProduct = new Product({
       category_id, product_quantity,

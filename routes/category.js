@@ -2,13 +2,17 @@ import express from 'express';
 const router = express.Router();
 import Category from '../models/category.js';
 import Product from '../models/product.js';
-
+import {
+  validateUniqueCategoryName,
+  validateUniqueCategoryDescription,
+  validateMandatoryFields,
+} from '../middleware.js';
 router.get('/:id', async (req, res) => {
   const id = req.params.id;
   try {
     const category = await Category.findOne({
-      _id:id,
-      is_active:true
+      _id: id,
+      is_active: true
     });
     if (!category) {
       return res.status(404).json({ error: 'No active categories available' });
@@ -22,7 +26,7 @@ router.get('/:id', async (req, res) => {
 // GET API endpoint to fetch all Categorys
 router.get('/', async (req, res) => {
   try {
-    const categories = await Category.find({is_active:true});
+    const categories = await Category.find({ is_active: true });
     if (categories.length > 0) {
       res.json(categories);
     }
@@ -40,23 +44,26 @@ router.get('/', async (req, res) => {
 
 
 // POST API endpoint to create a new Category
-router.post('/', async (req, res) => {
-  const created_at = new Date();
-  const updated_at = new Date();
-  const is_active = true;
+router.post('/', validateMandatoryFields(['category_name', 'category_description']),
+  validateUniqueCategoryName,
+  validateUniqueCategoryDescription,
+  async (req, res) => {
+    const created_at = new Date();
+    const updated_at = new Date();
+    const is_active = true;
 
-  try {
-    const { category_name, category_description } = req.body;
-    const newCategory = new Category({
-      category_name, category_description, is_active, created_at, updated_at
-    });
-    const savedCategory = await newCategory.save();
-    res.status(201).json(savedCategory);
-  } catch (err) {
-    req.log.error('Error creating a new Category:', err.message);
-    res.status(500).json({ error: 'Something went wrong' });
-  }
-});
+    try {
+      const { category_name, category_description } = req.body;
+      const newCategory = new Category({
+        category_name, category_description, is_active, created_at, updated_at
+      });
+      const savedCategory = await newCategory.save();
+      res.status(201).json(savedCategory);
+    } catch (err) {
+      req.log.error('Error creating a new Category:', err.message);
+      res.status(500).json({ error: 'Something went wrong' });
+    }
+  });
 
 // PUT API endpoint to update an existing Category
 router.put('/:id', async (req, res) => {
@@ -65,9 +72,9 @@ router.put('/:id', async (req, res) => {
   try {
     const { category_name, category_description, is_active } = req.body;
     let updatedProducts;
-    if(is_active === false){ //if the status of category changes, change all products status
+    if (is_active === false) { //if the status of category changes, change all products status
       updatedProducts = await Product.updateMany(
-        {category_id:category_id},
+        { category_id: category_id },
         { category_name, category_description, updated_at, is_active },
         { new: true } // Return the updated Category
       );
@@ -96,7 +103,7 @@ router.patch('/:id', async (req, res) => {
       { new: true } // Return the updated Category
     );
     await Product.updateMany(
-      {category_id:category_id},
+      { category_id: category_id },
       { category_name, category_description, updated_at, is_active },
       { new: true } // Return the updated Category
     );
@@ -112,7 +119,7 @@ router.delete('/:id', async (req, res) => {
   const category_id = req.params.id;
   try {
     await Category.findByIdAndDelete(req.params.id);
-    await Product.deleteMany({category_id:category_id});
+    await Product.deleteMany({ category_id: category_id });
     res.json({ message: 'Category deleted successfully' });
   } catch (err) {
     req.log.error('Error deleting Category:', err.message);
