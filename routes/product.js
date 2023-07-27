@@ -35,7 +35,24 @@ router.get('/:id', async (req, res) => {
     if (!product) {
       return res.status(404).json({ error: 'No active Products available' });
     }
-    res.json(product);
+    if (product.product_image) {
+      var ObjectId = mongoose.Types.ObjectId;
+      var productImage = product.product_image;
+      const imageFile = await db.collection('fs.files').findOne({_id: new ObjectId(productImage)});
+      if (!imageFile) {
+        return res.status(404).json({ message: 'Image not found' });
+      }
+      const imageStream = db.collection('fs.chunks').find({ files_id: new ObjectId(productImage) });
+      let imageData = [];
+      for await (const chunk of imageStream) {
+        imageData.push(chunk.data.buffer);
+      }
+      const imageBuffer = Buffer.concat(imageData).toString('base64');
+      let imageSrc = `data:${imageFile.contentType};base64,${imageBuffer}`;
+      res.status(200).json({...product, imageSrc});
+    } else {
+      res.status(200).json({ product });
+    }
   } catch (err) {
     req.log.error('Error finding products:', err.message);
     res.status(500).json({ error: 'Something went wrong' });
@@ -44,19 +61,41 @@ router.get('/:id', async (req, res) => {
 // GET API endpoint to fetch all Products
 router.get('/', async (req, res) => {
   try {
-    const products = await Product.find({
-      is_active:true
-    });
+    const products = await Product.find({ is_active: true });
     if (products.length > 0) {
-      res.json(products);
-    }
-    else {
+      const result = [];
+
+      for (const product of products) {
+        if (product.product_image) {
+          const ObjectId = mongoose.Types.ObjectId;
+          const productImage = product.product_image;
+          const imageFile = await db.collection('fs.files').findOne({ _id: new ObjectId(productImage) });
+
+          if (!imageFile) {
+            return res.status(404).json({ message: 'Image not found' });
+          }
+
+          const imageStream = db.collection('fs.chunks').find({ files_id: new ObjectId(productImage) });
+          const imageData = [];
+
+          for await (const chunk of imageStream) {
+            imageData.push(chunk.data.buffer);
+          }
+
+          const imageBuffer = Buffer.concat(imageData).toString('base64');
+          const imageSrc = `data:${imageFile.contentType};base64,${imageBuffer}`;
+          result.push({ product, imageSrc });
+        } else {
+          result.push({ product });
+        }
+      }
+      res.status(200).json(result);
+    } else {
       let message = "There are no active products";
       res.status(404).json({ error: message });
     }
-
   } catch (err) {
-    req.log.error('Error fetching Products:', err.message); // Log errors with pino
+    console.error('Error fetching Products:', err.message);
     res.status(500).json({ error: 'Something went wrong' });
   }
 });
