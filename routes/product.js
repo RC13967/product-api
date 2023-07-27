@@ -70,14 +70,14 @@ router.post('/', upload.single('image'), async (req, res) => {
   const is_active = true;
 
   try {
-    const data = JSON.parse(req.body.data);
-    const { category_id, product_image, product_quantity, product_name, product_description } = data;
+    const data = JSON.parse(req.body?.data);
+    const { category_id, product_quantity, product_name, product_description } = data;
     const newProduct = new Product({
-      category_id, product_image, product_quantity,
+      category_id, product_quantity,
       product_name, product_description, is_active, created_at, updated_at
     });
     if (req.file) {
-      newProduct.image = req.file.id;
+      newProduct.product_image = req.file.id;
     }
     const savedProduct = await newProduct.save();
     res.status(201).json(savedProduct);
@@ -88,17 +88,35 @@ router.post('/', upload.single('image'), async (req, res) => {
 });
 
 // PUT API endpoint to update an existing Product
-router.put('/:id', async (req, res) => {
+router.put('/:id', upload.single('image'), async (req, res) => {
   const updated_at = new Date();
+
+  const data = req.body?.data ? JSON.parse(req.body.data) : "";
+  let product_image;
   try {
-    const { category_id, product_image, product_quantity,
-      product_name, product_description, is_active } = req.body;
-    const updatedProduct = await Product.findByIdAndUpdate(
-      req.params.id,
-      { category_id, product_image, product_quantity,
-        product_name, product_description, is_active, updated_at },
-      { new: true } // Return the updated Product
-    );
+    let updatedProduct;
+    if (req.file) {
+      product_image = req.file.id;
+    }
+    if(data){
+      const { category_id, product_quantity,
+        product_name, product_description, is_active } = data;
+  
+        updatedProduct = await Product.findByIdAndUpdate(
+          req.params.id,
+          { category_id, product_image, product_quantity,
+            product_name, product_description, is_active, updated_at },
+          { new: true } // Return the updated Product
+        );
+    } else {
+
+      updatedProduct = await Product.findByIdAndUpdate(
+        req.params.id,
+        { product_image,  updated_at },
+        { new: true } // Return the updated Product
+      );
+    }
+    
     res.json(updatedProduct);
   } catch (err) {
     req.log.error('Error updating Product:', err.message);
