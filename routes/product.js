@@ -31,15 +31,20 @@ const storage = new GridFsStorage({
 
 const upload = multer({ storage });
 
+// GET API endpoint to fetch a single Product by ID
 router.get('/:id', async (req, res) => {
   try {
     const product = await Product.findOne({
       _id:req.params.id,
       is_active:true
-    })
+    });
+
+    // Check if the product exists and is active
     if (!product) {
       return res.status(404).json({ error: 'No active Products available' });
     }
+
+    // Retrieve product image if available and encode it to base64
     if (product.product_image) {
       var ObjectId = mongoose.Types.ObjectId;
       var productImage = product.product_image;
@@ -63,13 +68,17 @@ router.get('/:id', async (req, res) => {
     res.status(500).json({ error: 'Something went wrong' });
   }
 });
+
 // GET API endpoint to fetch all Products
 router.get('/', async (req, res) => {
   try {
     const products = await Product.find({ is_active: true });
+
+    // Check if there are active products available
     if (products.length > 0) {
       const result = [];
 
+      // Retrieve product image if available for each product and encode it to base64
       for (const product of products) {
         if (product.product_image) {
           const ObjectId = mongoose.Types.ObjectId;
@@ -105,36 +114,36 @@ router.get('/', async (req, res) => {
   }
 });
 
-
-
 // POST API endpoint to create a new Product
-router.post('/', 
-upload.single('image'), 
-validateMandatoryFieldsProduct(['product_name', 'product_description', 'product_quantity']),
-validateUniqueProductName,
-validateUniqueProductDescription,
-async (req, res) => {
-  const created_at = new Date();
-  const updated_at = new Date();
-  const is_active = true;
+router.post('/',
+  upload.single('image'),
+  validateMandatoryFieldsProduct(['product_name', 'product_description', 'product_quantity']),
+  validateUniqueProductName,
+  validateUniqueProductDescription,
+  async (req, res) => {
+    const created_at = new Date();
+    const updated_at = new Date();
+    const is_active = true;
 
-  try {
-    const data = JSON.parse(req.body.data);
-    const { category_id, product_quantity, product_name, product_description } = data;
-    const newProduct = new Product({
-      category_id, product_quantity,
-      product_name, product_description, is_active, created_at, updated_at
-    });
-    if (req.file) {
-      newProduct.product_image = req.file.id;
+    try {
+      const data = JSON.parse(req.body.data);
+      const { category_id, product_quantity, product_name, product_description } = data;
+      const newProduct = new Product({
+        category_id, product_quantity,
+        product_name, product_description, is_active, created_at, updated_at
+      });
+
+      // Save the newly created product
+      if (req.file) {
+        newProduct.product_image = req.file.id;
+      }
+      const savedProduct = await newProduct.save();
+      res.status(201).json(savedProduct);
+    } catch (err) {
+      req.log.error('Error creating a new Product:', err.message);
+      res.status(500).json({ error: 'Something went wrong' });
     }
-    const savedProduct = await newProduct.save();
-    res.status(201).json(savedProduct);
-  } catch (err) {
-    req.log.error('Error creating a new Product:', err.message);
-    res.status(500).json({ error: 'Something went wrong' });
-  }
-});
+  });
 
 // PUT API endpoint to update an existing Product
 router.put('/:id', upload.single('image'), async (req, res) => {
@@ -147,25 +156,26 @@ router.put('/:id', upload.single('image'), async (req, res) => {
     if (req.file) {
       product_image = req.file.id;
     }
-    if(data){
+
+    // Check if data exists and update the product accordingly
+    if (data) {
       const { category_id, product_quantity,
         product_name, product_description, is_active } = data;
-  
-        updatedProduct = await Product.findByIdAndUpdate(
-          req.params.id,
-          { category_id, product_image, product_quantity,
-            product_name, product_description, is_active, updated_at },
-          { new: true } // Return the updated Product
-        );
-    } else {
 
       updatedProduct = await Product.findByIdAndUpdate(
         req.params.id,
-        { product_image,  updated_at },
+        { category_id, product_image, product_quantity,
+          product_name, product_description, is_active, updated_at },
+        { new: true } // Return the updated Product
+      );
+    } else {
+      updatedProduct = await Product.findByIdAndUpdate(
+        req.params.id,
+        { product_image, updated_at },
         { new: true } // Return the updated Product
       );
     }
-    
+
     res.json(updatedProduct);
   } catch (err) {
     req.log.error('Error updating Product:', err.message);
@@ -190,14 +200,20 @@ router.patch('/:id', async (req, res) => {
   }
 });
 
+
 // DELETE API endpoint to delete a Product
 router.delete('/:id', async (req, res) => {
   try {
+    // Find and delete the product by ID
     await Product.findByIdAndDelete(req.params.id);
+
+    // Respond with a success message
     res.json({ message: 'Product deleted successfully' });
   } catch (err) {
+    // Log the error and respond with an error message if something went wrong
     req.log.error('Error deleting Product:', err.message);
     res.status(500).json({ error: 'Something went wrong' });
   }
 });
+
 export default router;
