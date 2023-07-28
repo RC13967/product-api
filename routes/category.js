@@ -66,7 +66,8 @@ router.post('/', validateMandatoryFields(['category_name', 'category_description
   });
 
 // PUT API endpoint to update an existing Category
-router.put('/:id', async (req, res) => {
+router.put('/:id',validateUniqueCategoryName,
+validateUniqueCategoryDescription, async (req, res) => {
   const updated_at = new Date();
   const category_id = req.params.id;
   try {
@@ -92,18 +93,22 @@ router.put('/:id', async (req, res) => {
 });
 
 // PATCH API endpoint to partially update an existing Category
-router.patch('/:id', async (req, res) => {
+router.patch('/:id',validateUniqueCategoryName,
+validateUniqueCategoryDescription, async (req, res) => {
   const updated_at = new Date();
   const category_id = req.params.id;
   try {
-    const { is_active } = req.body;
+    const { category_name, category_description, is_active } = req.body;
+    let updatedProducts;
+    if (is_active === false) { //if the status of category changes, change all products status
+      updatedProducts = await Product.updateMany(
+        { category_id: category_id },
+        { category_name, category_description, updated_at, is_active },
+        { new: true } // Return the updated Category
+      );
+    }
     const updatedCategory = await Category.findByIdAndUpdate(
       category_id,
-      { is_active, updated_at },
-      { new: true } // Return the updated Category
-    );
-    await Product.updateMany(
-      { category_id: category_id },
       { category_name, category_description, updated_at, is_active },
       { new: true } // Return the updated Category
     );
@@ -113,7 +118,6 @@ router.patch('/:id', async (req, res) => {
     res.status(500).json({ error: 'Something went wrong' });
   }
 });
-
 // DELETE API endpoint to delete a Category
 router.delete('/:id', async (req, res) => {
   const category_id = req.params.id;
