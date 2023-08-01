@@ -22,7 +22,7 @@ const storage = new GridFsStorage({
   db,
   options: { useNewUrlParser: true, useUnifiedTopology: true },
   file: (req, file) => {
-    // Generate a unique filename for the image using the book's title
+    // Generate a unique filename for the image
     return {
       filename: `${Date.now()}-file-${file.originalname}`,
     }

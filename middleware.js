@@ -19,7 +19,9 @@ export const validateUniqueCategoryName = async (req, res, next) => {
 
 // Middleware to validate unique product_name
 export const validateUniqueProductName = async (req, res, next) => {
-  const { product_name } = JSON.parse(req.body.data);
+  let product_name;
+  if(req.body.data)  
+  product_name  = JSON.parse(req.body.data).product_name;
   try {
     const existingProduct = await Product.findOne({ product_name });
     if (existingProduct) {
@@ -33,7 +35,7 @@ export const validateUniqueProductName = async (req, res, next) => {
 
 
 
-// Middleware to validate mandatory fields in the request body
+// Middleware to validate mandatory fields for 'category' in the request body
 export const validateMandatoryFields = (mandatoryFields) => (req, res, next) => {
   const missingFields = mandatoryFields.filter((field) => !req.body[field]);
   if (missingFields.length > 0) {
@@ -42,9 +44,10 @@ export const validateMandatoryFields = (mandatoryFields) => (req, res, next) => 
   next();
 };
 
+// Middleware to validate mandatory fields for 'product'
 export const validateMandatoryFieldsProduct = (mandatoryFields) => (req, res, next) => {
   const missingFields = mandatoryFields.filter((field) => !getFieldValue(req.body, field));
-  if (!req.file) missingFields.push("Image");
+  if (!req.file ) missingFields.push("Image");//   && !JSON.parse(req.body.data).imageUrl
   if (missingFields.length > 0) {
     return res.status(400).json({ error: `Missing mandatory fields: ${missingFields.join(', ')}` });
   }
@@ -68,7 +71,7 @@ const getFieldValue = (formData, field) => {
 };
 
 
-// Helper function to get the file extension from a filename
+// The function checks if the file is valid image ('.jpg', '.jpeg', '.png')
 export const isValidImageFile = (fileName) => {
   const validImageExtensions = ['.jpg', '.jpeg', '.png'];
   const dotIndex = fileName.lastIndexOf('.');
@@ -77,6 +80,8 @@ export const isValidImageFile = (fileName) => {
   return true;
 
 };
+
+//The function checks if the image size is below 1 mb
 export const isValidImageSize = (fileSize) => {
   if (fileSize > 1 * 1024 * 1024) return false;
   return true
