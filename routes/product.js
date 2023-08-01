@@ -46,7 +46,54 @@ const handleFileUpload = (req, res, next) => {
   });
 };
 
+router.post('/dateFilter', async (req, res) => {
+  console.log(req.body);
+  const {fromDate, toDate} = req.body;
+  console.log(fromDate,toDate)
+  try {
+    const products = await Product.find({ 
+      "created_at": {$gte: new Date(fromDate), $lte:new Date(toDate)
+      }}).sort({ "created_at": 'desc' });;
 
+    // Check if there are active products available
+    if (products.length > 0) {
+      const result = [];
+
+      // Retrieve product image if available for each product and encode it to base64
+      for (const product of products) {
+        if (product.product_image) {
+          const ObjectId = mongoose.Types.ObjectId;
+          const productImage = product.product_image;
+          const imageFile = await db.collection('fs.files').findOne({ _id: new ObjectId(productImage) });
+
+          if (!imageFile) {
+            return res.status(404).json({ message: 'Image not found' });
+          }
+
+          const imageStream = db.collection('fs.chunks').find({ files_id: new ObjectId(productImage) });
+          const imageData = [];
+
+          for await (const chunk of imageStream) {
+            imageData.push(chunk.data.buffer);
+          }
+
+          const imageBuffer = Buffer.concat(imageData).toString('base64');
+          const imageSrc = `data:${imageFile.contentType};base64,${imageBuffer}`;
+          result.push({ ...product._doc, imageSrc });
+        } else {
+          result.push({ product });
+        }
+      }
+      res.status(200).json(result);
+    } else {
+      let message = "There are no products within the range";
+      res.status(404).json({ error: message });
+    }
+  } catch (err) {
+    console.error('Error fetching Products:', err.message);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
 // GET API endpoint to fetch a single Product by ID
 router.get('/:id', async (req, res) => {
   try {
