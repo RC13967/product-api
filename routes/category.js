@@ -2,11 +2,18 @@ import express from 'express';
 const router = express.Router();
 import Category from '../models/category.js';
 import Product from '../models/product.js';
+import mongoose from 'mongoose';
 import {
   validateUniqueCategoryName,
   validateMandatoryFields,
 } from '../middleware.js';
-
+import dotenv from "dotenv";
+dotenv.config();
+mongoose.connect(process.env.MONGO_URL, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+});
+const db = mongoose.connection;
 // GET API endpoint to fetch a single Category by ID
 router.get('/:id', async (req, res) => {
   const id = req.params.id;
@@ -132,14 +139,18 @@ router.patch('/:id', validateUniqueCategoryName, async (req, res) => {
 
 // DELETE API endpoint to delete a Category
 router.delete('/:id', async (req, res) => {
+  const ObjectId = mongoose.Types.ObjectId;
   const category_id = req.params.id;
   try {
     // Find and delete the category by ID
-    await Category.findByIdAndDelete(req.params.id);
-
+    await Category.findByIdAndDelete(category_id);
+    const products =  await Product.find({"category_id":new ObjectId(category_id)});
+    let productIds = products.map((product)=> new ObjectId(product.product_image));
     // Delete all products associated with the category
     await Product.deleteMany({ category_id: category_id });
-
+    //delete images of products
+    await db.collection('fs.files').deleteMany({'_id': {'$in': productIds}});
+    await db.collection('fs.chunks').deleteMany({'_id': {'$in':productIds}});
     res.json({ message: 'Category deleted successfully' });
   } catch (err) {
     req.log.error('Error deleting Category:', err.message);
