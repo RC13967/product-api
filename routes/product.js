@@ -11,6 +11,7 @@ import {
   isValidImageFile,
   isValidImageSize,
 } from '../middleware.js';
+import Category from '../models/category.js';
 dotenv.config();
 // Create a connection to MongoDB using Mongoose
 mongoose.connect(process.env.MONGO_URL, {
@@ -141,11 +142,14 @@ router.post('/',
     const created_at = new Date();
     const updated_at = new Date();
     const is_active = true;
+    const ObjectId = mongoose.Types.ObjectId;
 
     try {
       const data = JSON.parse(req.body.data);
-      console.log(data);
       const { category_id, product_quantity, product_name, product_description } = data;
+      const categoryExists = await Category.findOne({_id:new ObjectId(category_id)});
+      if(!categoryExists) 
+      return res.status(404).json({ error: 'Product cant be saved in this category' });
       const newProduct = new Product({
         category_id, product_quantity,
         product_name, product_description, is_active, created_at, updated_at
@@ -182,6 +186,12 @@ router.put('/:id', handleFileUpload, validateUniqueProductName, async (req, res)
     if (data) {
       const { category_id, product_quantity,
         product_name, product_description, is_active } = data;
+        
+        if(category_id){ //check if the category id exists
+          const categoryExists = await Category.findOne({_id:new ObjectId(category_id)});
+      if(!categoryExists) 
+      return res.status(404).json({ error: 'Product cant be saved in this category' });
+        }
 
       updatedProduct = await Product.findByIdAndUpdate(
         req.params.id,
@@ -226,6 +236,11 @@ router.patch('/:id', handleFileUpload, validateUniqueProductName, async (req, re
     if (data) {
       const { category_id, product_quantity,
         product_name, product_description, is_active } = data;
+        if(category_id){
+          const categoryExists = await Category.findOne({_id:new ObjectId(category_id)});
+      if(!categoryExists) 
+      return res.status(404).json({ error: 'Product cant be saved in this category' });
+        }
 
       updatedProduct = await Product.findByIdAndUpdate(
         req.params.id,
@@ -252,9 +267,16 @@ router.patch('/:id', handleFileUpload, validateUniqueProductName, async (req, re
 
 // DELETE API endpoint to delete a Product
 router.delete('/:id', async (req, res) => {
+  let id = req.params.id;
+  const ObjectId = mongoose.Types.ObjectId;
   try {
+    const product =  await Product.findOne({_id:id});
+    if(!product) return res.status(404).json({ error: 'Product not found' });
+    //remove image file
+    await db.collection('fs.files').deleteOne({_id: new ObjectId(product.product_image)});
+    await db.collection('fs.chunks').deleteMany({_id:new ObjectId(product.product_image)});
     // Find and delete the product by ID
-    await Product.findByIdAndDelete(req.params.id);
+    await Product.findByIdAndDelete(id);
 
     // Respond with a success message
     res.json({ message: 'Product deleted successfully' });
