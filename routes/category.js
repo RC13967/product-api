@@ -16,10 +16,9 @@ mongoose.connect(process.env.MONGO_URL, {
 const db = mongoose.connection;
 // GET API endpoint to fetch a single Category by ID
 router.get("/:id", async (req, res) => {
-  const id = req.params.id;
   try {
     const category = await Category.findOne({
-      _id: id,
+      _id: req.params.id,
       is_active: true,
     });
 
@@ -45,8 +44,7 @@ router.get("/", async (req, res) => {
     if (categories.length > 0) {
       res.json(categories);
     } else {
-      let message = "There are no active categories";
-      res.status(404).json({ error: message });
+      res.status(404).json({ error: "There are no active categories" });
     }
   } catch (err) {
     req.log.error("Error fetching Categories:", err.message); // Log errors with pino
@@ -60,18 +58,15 @@ router.post(
   validateMandatoryFields(["category_name", "category_description"]),
   validateUniqueCategoryName,
   async (req, res) => {
-    const created_at = new Date();
-    const updated_at = new Date();
-    const is_active = true;
 
     try {
       const { category_name, category_description } = req.body;
       const newCategory = new Category({
         category_name,
         category_description,
-        is_active,
-        created_at,
-        updated_at,
+        is_active:true,
+        created_at: new Date(),
+        updated_at:new Date(),
       });
 
       // Save the newly created category
@@ -86,25 +81,23 @@ router.post(
 
 // PUT API endpoint to update an existing Category
 router.put("/:id", validateUniqueCategoryName, async (req, res) => {
-  const updated_at = new Date();
-  const category_id = req.params.id;
 
   try {
     const { category_name, category_description, is_active } = req.body;
     let updatedProducts;
 
-    // Check if the status of the category changes, and update all related products
+    // if category changes to in_active, change all the products to in_active
     if (is_active === false) {
       updatedProducts = await Product.updateMany(
-        { category_id: category_id },
-        { category_name, category_description, updated_at, is_active },
+        { category_id: req.params.id },
+        { category_name, category_description, updated_at: new Date(), is_active },
         { new: true }, // Return the updated Category
       );
     }
 
     // Update the existing category
     const updatedCategory = await Category.findByIdAndUpdate(
-      category_id,
+      req.params.id ,
       { category_name, category_description, updated_at, is_active },
       { new: true }, // Return the updated Category
     );
@@ -117,26 +110,23 @@ router.put("/:id", validateUniqueCategoryName, async (req, res) => {
 
 // PATCH API endpoint to partially update an existing Category
 router.patch("/:id", validateUniqueCategoryName, async (req, res) => {
-  const updated_at = new Date();
-  const category_id = req.params.id;
 
   try {
     const { category_name, category_description, is_active } = req.body;
     let updatedProducts;
-
-    // Check if the status of the category changes, and update all related products
+    // if category changes to in_active, change all the products to in_active
     if (is_active === false) {
       updatedProducts = await Product.updateMany(
-        { category_id: category_id },
-        { category_name, category_description, updated_at, is_active },
+        { category_id: req.params.id},
+        { category_name, category_description, updated_at: new Date(), is_active },
         { new: true }, // Return the updated Category
       );
     }
 
     // Update the existing category
     const updatedCategory = await Category.findByIdAndUpdate(
-      category_id,
-      { category_name, category_description, updated_at, is_active },
+      req.params.id,
+      { category_name, category_description, updated_at: new Date(), is_active },
       { new: true }, // Return the updated Category
     );
     res.json(updatedCategory);
@@ -149,18 +139,17 @@ router.patch("/:id", validateUniqueCategoryName, async (req, res) => {
 // DELETE API endpoint to delete a Category
 router.delete("/:id", async (req, res) => {
   const ObjectId = mongoose.Types.ObjectId;
-  const category_id = req.params.id;
   try {
     // Find and delete the category by ID
-    await Category.findByIdAndDelete(category_id);
+    await Category.findByIdAndDelete(req.params.id);
     const products = await Product.find({
-      category_id: new ObjectId(category_id),
+      category_id: new ObjectId(req.params.id),
     });
     let productIds = products.map(
       (product) => new ObjectId(product.product_image),
     );
     // Delete all products associated with the category
-    await Product.deleteMany({ category_id: category_id });
+    await Product.deleteMany({ category_id: req.params.id});
     //delete images of products
     await db.collection("fs.files").deleteMany({ _id: { $in: productIds } });
     await db.collection("fs.chunks").deleteMany({ _id: { $in: productIds } });
