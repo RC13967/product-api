@@ -12,6 +12,10 @@ import {
   isValidImageSize,
 } from "../middleware.js";
 import Category from "../models/category.js";
+import {
+  errorMessages,
+  successMessages,
+} from "../message.js";
 dotenv.config();
 const ObjectId = mongoose.Types.ObjectId;
 // Create a connection to MongoDB using Mongoose
@@ -70,7 +74,7 @@ router.post("/dateFilter", async (req, res) => {
             .findOne({ _id: new ObjectId(product.product_image) });
 
           if (!imageFile) {
-            return res.status(404).json({ message: "Image not found" });
+            return res.status(404).json({ message: errorMessages.imageNotFound });
           }
 
           const imageStream = db
@@ -91,12 +95,11 @@ router.post("/dateFilter", async (req, res) => {
       }
       res.status(200).json(result);
     } else {
-      let message = "There are no products within the range";
-      res.status(404).json({ error: message });
+      res.status(404).json({ error: errorMessages.noProductsInRange });
     }
   } catch (err) {
     console.error("Error fetching Products:", err.message);
-    res.status(500).json({ error: "Something went wrong" });
+    res.status(500).json({ error: errorMessages.somethingWentWrong });
   }
 });
 // GET API endpoint to fetch a single Product by ID
@@ -109,7 +112,7 @@ router.get("/:id", async (req, res) => {
 
     // Check if the product exists and is active
     if (!product) {
-      return res.status(404).json({ error: "No active Products available" });
+      return res.status(404).json({ error: errorMessages.productNotFound });
     }
 
     // Retrieve product image if available and encode it to base64
@@ -125,7 +128,7 @@ router.get("/:id", async (req, res) => {
       ]);
 
       if (!imageFile || imageData.length === 0) {
-        return res.status(404).json({ message: "Image not found" });
+        return res.status(404).json({ message: errorMessages.imageNotFound });
       }
 
       const imageBuffer = Buffer.concat(
@@ -138,7 +141,7 @@ router.get("/:id", async (req, res) => {
     }
   } catch (err) {
     req.log.error("Error finding products:", err.message);
-    res.status(500).json({ error: "Something went wrong" });
+    res.status(500).json({ error: errorMessages.somethingWentWrong });
   }
 });
 
@@ -165,7 +168,7 @@ router.get("/", async (req, res) => {
           ]);
 
           if (!imageFile || imageData.length === 0) {
-            throw new Error("Image not found");
+            throw new Error(errorMessages.imageNotFound);
           }
 
           const imageBuffer = Buffer.concat(
@@ -183,11 +186,11 @@ router.get("/", async (req, res) => {
       const result = await Promise.all(imagePromises);
       res.status(200).json(result);
     } else {
-      res.status(404).json({ error: "There are no active products" });
+      res.status(404).json({ error: errorMessages.noActiveProduct });
     }
   } catch (err) {
     console.error("Error fetching Products:", err.message);
-    res.status(500).json({ error: "Something went wrong" });
+    res.status(500).json({ error: errorMessages.somethingWentWrong });
   }
 });
 
@@ -215,7 +218,7 @@ router.post(
       if (!categoryExists) {
         return res
           .status(404)
-          .json({ error: "Product can't be saved in this category" });
+          .json({ error: errorMessages.productCantSave });
       }
 
       const newProduct = new Product({
@@ -237,7 +240,7 @@ router.post(
       res.status(201).json(savedProduct);
     } catch (err) {
       req.log.error("Error creating a new Product:", err.message);
-      res.status(500).json({ error: "Something went wrong" });
+      res.status(500).json({ error: errorMessages.somethingWentWrong });
     }
   },
 );
@@ -258,8 +261,7 @@ router.put(
           !isValidImageSize(req.file.size)
         ) {
           return res.status(400).json({
-            error:
-              "Invalid image file. Only image files (JPEG, JPG, PNG) of size less than 1 MB are allowed.",
+            error:errorMessages.invalidImageFile,
           });
         }
         product_image = req.file.id;
@@ -279,7 +281,7 @@ router.put(
           if (!categoryExists) {
             return res
               .status(404)
-              .json({ error: "Product can't be saved in this category" });
+              .json({ error: errorMessages.productCantSave });
           }
         }
 
@@ -310,7 +312,7 @@ router.put(
       res.json(updatedProduct);
     } catch (err) {
       req.log.error("Error updating Product:", err.message);
-      res.status(500).json({ error: "Something went wrong" });
+      res.status(500).json({ error: errorMessages.somethingWentWrong });
     }
   },
 );
@@ -331,8 +333,7 @@ router.patch(
           !isValidImageSize(req.file.size)
         )
           return res.status(400).json({
-            error:
-              "Invalid image file. Only image files (JPEG, JPG, PNG) of size less than 1 mb are allowed.",
+            error:errorMessages.invalidImageFile,
           });
         product_image = req.file.id;
       }
@@ -350,7 +351,7 @@ router.patch(
           if (!categoryExists) {
             return res
               .status(404)
-              .json({ error: "Product can't be saved in this category" });
+              .json({ error: errorMessages.productCantSave });
           }
         }
 
@@ -378,7 +379,7 @@ router.patch(
       res.json(updatedProduct);
     } catch (err) {
       req.log.error("Error updating Product:", err.message);
-      res.status(500).json({ error: "Something went wrong" });
+      res.status(500).json({ error: errorMessages.somethingWentWrong });
     }
   },
 );
@@ -389,7 +390,7 @@ router.delete("/:id", async (req, res) => {
     const product = await Product.findOneAndDelete({ _id: req.params.id });
 
     if (!product) {
-      return res.status(404).json({ error: "Product not found" });
+      return res.status(404).json({ error: errorMessages.productNotFound });
     }
 
     // Remove image file
@@ -400,11 +401,11 @@ router.delete("/:id", async (req, res) => {
       .collection("fs.chunks")
       .deleteMany({ _id: new ObjectId(product.product_image) });
 
-    res.json({ message: "Product deleted successfully" });
+    res.json({ message: successMessages.productDeleted });
   } catch (err) {
     // Log the error and respond with an error message if something went wrong
     req.log.error("Error deleting Product:", err.message);
-    res.status(500).json({ error: "Something went wrong" });
+    res.status(500).json({ error: errorMessages.somethingWentWrong });
   }
 });
 
