@@ -12,10 +12,7 @@ import {
   isValidImageSize,
 } from "../middleware.js";
 import Category from "../models/category.js";
-import {
-  errorMessages,
-  successMessages,
-} from "../message.js";
+import { errorMessages, successMessages } from "../message.js";
 dotenv.config();
 const ObjectId = mongoose.Types.ObjectId;
 // Create a connection to MongoDB using Mongoose
@@ -74,7 +71,9 @@ router.post("/dateFilter", async (req, res) => {
             .findOne({ _id: new ObjectId(product.product_image) });
 
           if (!imageFile) {
-            return res.status(404).json({ message: errorMessages.imageNotFound });
+            return res
+              .status(404)
+              .json({ message: errorMessages.imageNotFound });
           }
 
           const imageStream = db
@@ -216,9 +215,7 @@ router.post(
 
       const categoryExists = await Category.exists({ _id: category_id });
       if (!categoryExists) {
-        return res
-          .status(404)
-          .json({ error: errorMessages.productCantSave });
+        return res.status(404).json({ error: errorMessages.productCantSave });
       }
 
       const newProduct = new Product({
@@ -261,7 +258,7 @@ router.put(
           !isValidImageSize(req.file.size)
         ) {
           return res.status(400).json({
-            error:errorMessages.invalidImageFile,
+            error: errorMessages.invalidImageFile,
           });
         }
         product_image = req.file.id;
@@ -333,7 +330,7 @@ router.patch(
           !isValidImageSize(req.file.size)
         )
           return res.status(400).json({
-            error:errorMessages.invalidImageFile,
+            error: errorMessages.invalidImageFile,
           });
         product_image = req.file.id;
       }

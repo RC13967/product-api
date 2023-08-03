@@ -64,11 +64,9 @@ export const validateMandatoryFieldsProduct =
       });
     }
     if (!isValidImageSize(req.file.size)) {
-      return res
-        .status(400)
-        .json({
-          error: `Only images of size less than ${process.env.MAX_IMAGE_SIZE} are allowed.`,
-        });
+      return res.status(400).json({
+        error: `Only images of size less than ${process.env.MAX_IMAGE_SIZE} are allowed.`,
+      });
     }
     next();
   };
