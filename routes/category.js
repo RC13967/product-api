@@ -9,7 +9,8 @@ import {
 } from "../middleware.js";
 import dotenv from "dotenv";
 dotenv.config();
-mongoose.connect(process.env.MONGO_URL, {
+const MONGO_URL = process.env.NODE_ENV === "production" ? process.env.MONGO_PROD_URL : process.env.MONGO_LOCAL_URL;
+mongoose.connect(MONGO_URL, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 });

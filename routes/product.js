@@ -13,8 +13,10 @@ import {
 } from "../middleware.js";
 import Category from "../models/category.js";
 dotenv.config();
+const ObjectId = mongoose.Types.ObjectId;
 // Create a connection to MongoDB using Mongoose
-mongoose.connect(process.env.MONGO_URL, {
+const MONGO_URL = process.env.NODE_ENV === "production" ? process.env.MONGO_PROD_URL : process.env.MONGO_LOCAL_URL;
+mongoose.connect(MONGO_URL, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 });
@@ -60,7 +62,6 @@ router.post("/dateFilter", async (req, res) => {
       // Retrieve product image if available for each product and encode it to base64
       for (const product of products) {
         if (product.product_image) {
-          const ObjectId = mongoose.Types.ObjectId;
           const imageFile = await db
             .collection("fs.files")
             .findOne({ _id: new ObjectId(product.product_image) });
@@ -110,26 +111,17 @@ router.get("/:id", async (req, res) => {
 
     // Retrieve product image if available and encode it to base64
     if (product.product_image) {
-      let ObjectId = mongoose.Types.ObjectId;
-      let productImage = product.product_image;
-      const imageFile = await db
-        .collection("fs.files")
-        .findOne({ _id: new ObjectId(productImage) });
-      if (!imageFile) {
+      const [imageFile, imageData] = await Promise.all([
+        db.collection("fs.files").findOne({ _id: new ObjectId(product.product_image) }),
+        db.collection("fs.chunks").find({ files_id: new ObjectId(product.product_image) }).toArray(),
+      ]);
+
+      if (!imageFile || imageData.length === 0) {
         return res.status(404).json({ message: "Image not found" });
       }
 
-      const imageStream = db
-        .collection("fs.chunks")
-        .find({ files_id: new ObjectId(productImage) });
-      let imageData = [];
-      for await (const chunk of imageStream) {
-        imageData.push(chunk.data.buffer);
-      }
-      product.imageSrc = "nice";
-      console.log(product.imageSrc);
-      const imageBuffer = Buffer.concat(imageData).toString("base64");
-      let imageSrc = `data:${imageFile.contentType};base64,${imageBuffer}`;
+      const imageBuffer = Buffer.concat(imageData.map((chunk) => chunk.data.buffer)).toString("base64");
+      const imageSrc = `data:${imageFile.contentType};base64,${imageBuffer}`;
       res.status(200).json({ ...product._doc, imageSrc });
     } else {
       res.status(200).json(product);
@@ -139,6 +131,8 @@ router.get("/:id", async (req, res) => {
     res.status(500).json({ error: "Something went wrong" });
   }
 });
+
+
 
 // GET API endpoint to fetch all Products
 router.get("/", async (req, res) => {
@@ -152,7 +146,6 @@ router.get("/", async (req, res) => {
     if (products.length > 0) {
       const imagePromises = products.map(async (product) => {
         if (product.product_image) {
-          const ObjectId = mongoose.Types.ObjectId;
           const [imageFile, imageData] = await Promise.all([
             db.collection("fs.files").findOne({ _id: new ObjectId(product.product_image) }),
             db
@@ -185,47 +178,38 @@ router.get("/", async (req, res) => {
 });
 
 
+
 // POST API endpoint to create a new Product
 router.post(
   "/",
   upload.single("image"),
-  validateMandatoryFieldsProduct([
-    "product_name",
-    "product_description",
-    "product_quantity",
-  ]),
+  validateMandatoryFieldsProduct(["product_name", "product_description", "product_quantity"]),
   validateUniqueProductName,
   async (req, res) => {
-    const ObjectId = mongoose.Types.ObjectId;
-
     try {
       const data = JSON.parse(req.body.data);
-      const {
-        category_id,
-        product_quantity,
-        product_name,
-        product_description,
-      } = data;
-      const categoryExists = await Category.findOne({
-        _id: new ObjectId(category_id),
-      });
-      if (!categoryExists)
-        return res
-          .status(404)
-          .json({ error: "Product cant be saved in this category" });
+      const { category_id, product_quantity, product_name, product_description } = data;
+
+      const categoryExists = await Category.exists({ _id: category_id });
+      if (!categoryExists) {
+        return res.status(404).json({ error: "Product can't be saved in this category" });
+      }
+
       const newProduct = new Product({
         category_id,
         product_quantity,
         product_name,
         product_description,
-        is_active:true,
-        created_at:new Date(),
-        updated_at:new Date(),
+        is_active: true,
+        created_at: new Date(),
+        updated_at: new Date(),
       });
+
       // Save the newly created product
       if (req.file) {
         newProduct.product_image = req.file.id;
       }
+
       const savedProduct = await newProduct.save();
       res.status(201).json(savedProduct);
     } catch (err) {
@@ -235,6 +219,7 @@ router.post(
   },
 );
 
+
 // PUT API endpoint to update an existing Product
 router.put(
   "/:id",
@@ -242,25 +227,19 @@ router.put(
   validateUniqueProductName,
   async (req, res) => {
     const data = req.body?.data ? JSON.parse(req.body.data) : "";
-    let product_image;
     try {
-      let updatedProduct;
+      let updatedProduct, product_image;
+
       if (req.file) {
-        if (!isValidImageFile(req.file.originalname))
-          return res
-            .status(400)
-            .json({
-              error:
-                "Invalid image file. Only image files (JPEG, JPG, PNG) are allowed.",
-            });
-        if (!isValidImageSize(req.file.size))
-          return res
-            .status(400)
-            .json({ error: `Only images of size less than 1 mb are allowed.` });
+        if (!isValidImageFile(req.file.originalname) || !isValidImageSize(req.file.size)) {
+          return res.status(400).json({
+            error:
+              "Invalid image file. Only image files (JPEG, JPG, PNG) of size less than 1 MB are allowed.",
+          });
+        }
         product_image = req.file.id;
       }
 
-      // Check if data exists and update the product accordingly
       if (data) {
         const {
           category_id,
@@ -271,33 +250,34 @@ router.put(
         } = data;
 
         if (category_id) {
-          //check if the category id exists
-          const categoryExists = await Category.findOne({
-            _id: new ObjectId(category_id),
-          });
-          if (!categoryExists)
+          const categoryExists = await Category.exists({ _id: category_id });
+          if (!categoryExists) {
             return res
               .status(404)
-              .json({ error: "Product cant be saved in this category" });
+              .json({ error: "Product can't be saved in this category" });
+          }
         }
+
+        const updateData = {
+          category_id,
+          product_image,
+          product_quantity,
+          product_name,
+          product_description,
+          is_active,
+          updated_at: new Date(),
+        };
 
         updatedProduct = await Product.findByIdAndUpdate(
           req.params.id,
-          {
-            category_id,
-            product_image,
-            product_quantity,
-            product_name,
-            product_description,
-            is_active,
-            updated_at: new Date(),
-          },
+          updateData,
           { new: true }, // Return the updated Product
         );
       } else {
+        const updateData = { product_image, updated_at: new Date() };
         updatedProduct = await Product.findByIdAndUpdate(
           req.params.id,
-          { product_image, updated_at:new Date() },
+          updateData,
           { new: true }, // Return the updated Product
         );
       }
@@ -309,6 +289,7 @@ router.put(
     }
   },
 );
+
 
 // PATCH API endpoint to partially update an existing Product
 router.patch(
@@ -322,20 +303,15 @@ router.patch(
     try {
       let updatedProduct;
       if (req.file) {
-        if (!isValidImageFile(req.file.originalname))
+        if (!isValidImageFile(req.file.originalname) || !isValidImageSize(req.file.size))
           return res
             .status(400)
             .json({
               error:
-                "Invalid image file. Only image files (JPEG, JPG, PNG) are allowed.",
+                "Invalid image file. Only image files (JPEG, JPG, PNG) of size less than 1 mb are allowed.",
             });
-        if (!isValidImageSize(req.file.size))
-          return res
-            .status(400)
-            .json({ error: `Only images of size less than 1 mb are allowed.` });
         product_image = req.file.id;
       }
-
       // Check if data exists and update the product accordingly
       if (data) {
         const {
@@ -346,13 +322,12 @@ router.patch(
           is_active,
         } = data;
         if (category_id) {
-          const categoryExists = await Category.findOne({
-            _id: new ObjectId(category_id),
-          });
-          if (!categoryExists)
+          const categoryExists = await Category.exists({ _id: category_id });
+          if (!categoryExists) {
             return res
               .status(404)
-              .json({ error: "Product cant be saved in this category" });
+              .json({ error: "Product can't be saved in this category" });
+          }
         }
 
         updatedProduct = await Product.findByIdAndUpdate(
@@ -371,7 +346,7 @@ router.patch(
       } else {
         updatedProduct = await Product.findByIdAndUpdate(
           req.params.id,
-          { product_image, updated_at },
+          { product_image, updated_at: new Date() },
           { new: true }, // Return the updated Product
         );
       }
@@ -386,21 +361,17 @@ router.patch(
 
 // DELETE API endpoint to delete a Product
 router.delete("/:id", async (req, res) => {
-  const ObjectId = mongoose.Types.ObjectId;
   try {
-    const product = await Product.findOne({ _id: req.params.id });
-    if (!product) return res.status(404).json({ error: "Product not found" });
-    //remove image file
-    await db
-      .collection("fs.files")
-      .deleteOne({ _id: new ObjectId(product.product_image) });
-    await db
-      .collection("fs.chunks")
-      .deleteMany({ _id: new ObjectId(product.product_image) });
-    // Find and delete the product by ID
-    await Product.findByIdAndDelete(id);
+    const product = await Product.findOneAndDelete({ _id: req.params.id });
 
-    // Respond with a success message
+    if (!product) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+
+    // Remove image file
+    await db.collection("fs.files").deleteOne({ _id: new ObjectId(product.product_image) });
+    await db.collection("fs.chunks").deleteMany({ _id: new ObjectId(product.product_image) });
+
     res.json({ message: "Product deleted successfully" });
   } catch (err) {
     // Log the error and respond with an error message if something went wrong

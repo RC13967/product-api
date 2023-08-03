@@ -66,13 +66,13 @@ export const validateMandatoryFieldsProduct =
       return res
         .status(400)
         .json({
-          error: `Invalid image file. Only image files(JPEG, JPG, PNG) are allowed.`,
+          error:`Invalid image file. Only image files(${process.env.ALLOWED_IMAGE_EXTENSIONS}) are allowed.`,
         });
     }
     if (!isValidImageSize(req.file.size)) {
       return res
         .status(400)
-        .json({ error: `Only images of size less than 1 mb are allowed.` });
+        .json({ error: `Only images of size less than ${process.env.MAX_IMAGE_SIZE} are allowed.` });
     }
     next();
   };
@@ -87,9 +87,9 @@ const getFieldValue = (formData, field) => {
   return dataObject[field] || null;
 };
 
-// The function checks if the file is valid image ('.jpg', '.jpeg', '.png')
+// The function checks if the file is a valid image
 export const isValidImageFile = (fileName) => {
-  const validImageExtensions = [".jpg", ".jpeg", ".png"];
+  const validImageExtensions = process.env.ALLOWED_IMAGE_EXTENSIONS.split(",");
   const dotIndex = fileName.lastIndexOf(".");
   const fileExtension =
     dotIndex !== -1 ? fileName.slice(dotIndex).toLowerCase() : "";
@@ -97,8 +97,7 @@ export const isValidImageFile = (fileName) => {
   return true;
 };
 
-//The function checks if the image size is below 1 mb
+// The function checks if the image size is within the limit
 export const isValidImageSize = (fileSize) => {
-  if (fileSize > 1 * 1024 * 1024) return false;
-  return true;
+  return fileSize <= process.env.MAX_IMAGE_SIZE;
 };
