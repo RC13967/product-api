@@ -9,7 +9,10 @@ import {
 } from "../middleware.js";
 import dotenv from "dotenv";
 dotenv.config();
-const MONGO_URL = process.env.NODE_ENV === "production" ? process.env.MONGO_PROD_URL : process.env.MONGO_LOCAL_URL;
+const MONGO_URL =
+  process.env.NODE_ENV === "production"
+    ? process.env.MONGO_PROD_URL
+    : process.env.MONGO_LOCAL_URL;
 mongoose.connect(MONGO_URL, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
@@ -59,15 +62,14 @@ router.post(
   validateMandatoryFields(["category_name", "category_description"]),
   validateUniqueCategoryName,
   async (req, res) => {
-
     try {
       const { category_name, category_description } = req.body;
       const newCategory = new Category({
         category_name,
         category_description,
-        is_active:true,
+        is_active: true,
         created_at: new Date(),
-        updated_at:new Date(),
+        updated_at: new Date(),
       });
 
       // Save the newly created category
@@ -82,7 +84,6 @@ router.post(
 
 // PUT API endpoint to update an existing Category
 router.put("/:id", validateUniqueCategoryName, async (req, res) => {
-
   try {
     const { category_name, category_description, is_active } = req.body;
     let updatedProducts;
@@ -91,14 +92,19 @@ router.put("/:id", validateUniqueCategoryName, async (req, res) => {
     if (is_active === false) {
       updatedProducts = await Product.updateMany(
         { category_id: req.params.id },
-        { category_name, category_description, updated_at: new Date(), is_active },
+        {
+          category_name,
+          category_description,
+          updated_at: new Date(),
+          is_active,
+        },
         { new: true }, // Return the updated Category
       );
     }
 
     // Update the existing category
     const updatedCategory = await Category.findByIdAndUpdate(
-      req.params.id ,
+      req.params.id,
       { category_name, category_description, updated_at, is_active },
       { new: true }, // Return the updated Category
     );
@@ -111,15 +117,19 @@ router.put("/:id", validateUniqueCategoryName, async (req, res) => {
 
 // PATCH API endpoint to partially update an existing Category
 router.patch("/:id", validateUniqueCategoryName, async (req, res) => {
-
   try {
     const { category_name, category_description, is_active } = req.body;
     let updatedProducts;
     // if category changes to in_active, change all the products to in_active
     if (is_active === false) {
       updatedProducts = await Product.updateMany(
-        { category_id: req.params.id},
-        { category_name, category_description, updated_at: new Date(), is_active },
+        { category_id: req.params.id },
+        {
+          category_name,
+          category_description,
+          updated_at: new Date(),
+          is_active,
+        },
         { new: true }, // Return the updated Category
       );
     }
@@ -127,7 +137,12 @@ router.patch("/:id", validateUniqueCategoryName, async (req, res) => {
     // Update the existing category
     const updatedCategory = await Category.findByIdAndUpdate(
       req.params.id,
-      { category_name, category_description, updated_at: new Date(), is_active },
+      {
+        category_name,
+        category_description,
+        updated_at: new Date(),
+        is_active,
+      },
       { new: true }, // Return the updated Category
     );
     res.json(updatedCategory);
@@ -150,7 +165,7 @@ router.delete("/:id", async (req, res) => {
       (product) => new ObjectId(product.product_image),
     );
     // Delete all products associated with the category
-    await Product.deleteMany({ category_id: req.params.id});
+    await Product.deleteMany({ category_id: req.params.id });
     //delete images of products
     await db.collection("fs.files").deleteMany({ _id: { $in: productIds } });
     await db.collection("fs.chunks").deleteMany({ _id: { $in: productIds } });

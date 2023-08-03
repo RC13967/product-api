@@ -39,11 +39,9 @@ export const validateMandatoryFields =
   (mandatoryFields) => (req, res, next) => {
     const missingFields = mandatoryFields.filter((field) => !req.body[field]);
     if (missingFields.length > 0) {
-      return res
-        .status(400)
-        .json({
-          error: `Missing mandatory fields: ${missingFields.join(", ")}`,
-        });
+      return res.status(400).json({
+        error: `Missing mandatory fields: ${missingFields.join(", ")}`,
+      });
     }
     next();
   };
@@ -56,23 +54,21 @@ export const validateMandatoryFieldsProduct =
     );
     if (!req.file) missingFields.push("Image"); //   && !JSON.parse(req.body.data).imageUrl
     if (missingFields.length > 0) {
-      return res
-        .status(400)
-        .json({
-          error: `Missing mandatory fields: ${missingFields.join(", ")}`,
-        });
+      return res.status(400).json({
+        error: `Missing mandatory fields: ${missingFields.join(", ")}`,
+      });
     }
     if (!isValidImageFile(req.file.originalname)) {
-      return res
-        .status(400)
-        .json({
-          error:`Invalid image file. Only image files(${process.env.ALLOWED_IMAGE_EXTENSIONS}) are allowed.`,
-        });
+      return res.status(400).json({
+        error: `Invalid image file. Only image files(${process.env.ALLOWED_IMAGE_EXTENSIONS}) are allowed.`,
+      });
     }
     if (!isValidImageSize(req.file.size)) {
       return res
         .status(400)
-        .json({ error: `Only images of size less than ${process.env.MAX_IMAGE_SIZE} are allowed.` });
+        .json({
+          error: `Only images of size less than ${process.env.MAX_IMAGE_SIZE} are allowed.`,
+        });
     }
     next();
   };
