@@ -70,13 +70,14 @@ router.post(
   validateUniqueCategoryName,
   async (req, res) => {
     try {
+      let currentTime = new Date();
       const { category_name, category_description } = req.body;
       const newCategory = new Category({
         category_name,
         category_description,
         is_active: true,
-        created_at: new Date(),
-        updated_at: new Date(),
+        created_at: currentTime,
+        updated_at: currentTime,
       });
 
       // Save the newly created category
@@ -125,6 +126,7 @@ router.put("/:id", validateUniqueCategoryName, async (req, res) => {
 // PATCH API endpoint to partially update an existing Category
 router.patch("/:id", validateUniqueCategoryName, async (req, res) => {
   try {
+    let currentTime = new Date();
     const { category_name, category_description, is_active } = req.body;
     let updatedProducts;
     // if category changes to in_active, change all the products to in_active
@@ -134,7 +136,7 @@ router.patch("/:id", validateUniqueCategoryName, async (req, res) => {
         {
           category_name,
           category_description,
-          updated_at: new Date(),
+          updated_at: currentTime,
           is_active,
         },
         { new: true }, // Return the updated Category
@@ -147,7 +149,7 @@ router.patch("/:id", validateUniqueCategoryName, async (req, res) => {
       {
         category_name,
         category_description,
-        updated_at: new Date(),
+        updated_at: currentTime,
         is_active,
       },
       { new: true }, // Return the updated Category

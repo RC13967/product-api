@@ -222,15 +222,15 @@ router.post(
       if (!categoryExists) {
         return genericErrorHandler(404, errorMessages.productCantSave);
       }
-
+let currentTime = new Date();
       const newProduct = new Product({
         category_id,
         product_quantity,
         product_name,
         product_description,
         is_active: true,
-        created_at: new Date(),
-        updated_at: new Date(),
+        created_at: currentTime,
+        updated_at: currentTime,
       });
 
       // Save the newly created product
@@ -348,7 +348,7 @@ router.patch(
             return genericErrorHandler(404, errorMessages.productCantSave);
           }
         }
-
+        let currentTime = new Date();
         updatedProduct = await Product.findByIdAndUpdate(
           req.params.id,
           {
@@ -358,14 +358,14 @@ router.patch(
             product_name,
             product_description,
             is_active,
-            updated_at: new Date(),
+            updated_at: currentTime,
           },
           { new: true }, // Return the updated Product
         );
       } else {
         updatedProduct = await Product.findByIdAndUpdate(
           req.params.id,
-          { product_image, updated_at: new Date() },
+          { product_image, updated_at: currentTime },
           { new: true }, // Return the updated Product
         );
       }
