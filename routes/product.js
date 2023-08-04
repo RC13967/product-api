@@ -12,7 +12,11 @@ import {
   isValidImageSize,
 } from "../middleware.js";
 import Category from "../models/category.js";
-import { errorMessages, successMessages } from "../message.js";
+import {
+  errorMessages,
+  successMessages,
+  genericErrorHandler,
+} from "../message.js";
 dotenv.config();
 const ObjectId = mongoose.Types.ObjectId;
 // Create a connection to MongoDB using Mongoose
@@ -43,10 +47,11 @@ const handleFileUpload = (req, res, next) => {
   upload.single("image")(req, res, (err) => {
     if (err instanceof multer.MulterError) {
       // Handle multer-specific errors
-      return res.status(400).json({ error: "Multer error: " + err.message });
+
+      return genericErrorHandler(404, "Multer error: " + err.message);
     } else if (err) {
       // Handle other errors that might occur during file upload
-      return res.status(500).json({ error: "File upload failed." });
+      return genericErrorHandler(500, "File upload failed.");
     }
     next();
   });
@@ -92,13 +97,13 @@ router.post("/dateFilter", async (req, res) => {
           result.push({ product });
         }
       }
-      res.status(200).json(result);
+      return genericErrorHandler(200, result);
     } else {
       res.status(404).json({ error: errorMessages.noProductsInRange });
     }
   } catch (err) {
     console.error("Error fetching Products:", err.message);
-    res.status(500).json({ error: errorMessages.somethingWentWrong });
+    return genericErrorHandler(500, errorMessages.somethingWentWrong);
   }
 });
 // GET API endpoint to fetch a single Product by ID
@@ -111,7 +116,7 @@ router.get("/:id", async (req, res) => {
 
     // Check if the product exists and is active
     if (!product) {
-      return res.status(404).json({ error: errorMessages.productNotFound });
+      return genericErrorHandler(404, errorMessages.productNotFound);
     }
 
     // Retrieve product image if available and encode it to base64
@@ -127,20 +132,20 @@ router.get("/:id", async (req, res) => {
       ]);
 
       if (!imageFile || imageData.length === 0) {
-        return res.status(404).json({ message: errorMessages.imageNotFound });
+        return genericErrorHandler(404, errorMessages.imageNotFound);
       }
 
       const imageBuffer = Buffer.concat(
         imageData.map((chunk) => chunk.data.buffer),
       ).toString("base64");
       const imageSrc = `data:${imageFile.contentType};base64,${imageBuffer}`;
-      res.status(200).json({ ...product._doc, imageSrc });
+      return genericErrorHandler(200, { ...product._doc, imageSrc });
     } else {
-      res.status(200).json(product);
+      return genericErrorHandler(200, product);
     }
   } catch (err) {
     req.log.error("Error finding products:", err.message);
-    res.status(500).json({ error: errorMessages.somethingWentWrong });
+    return genericErrorHandler(500, errorMessages.somethingWentWrong);
   }
 });
 
@@ -183,13 +188,13 @@ router.get("/", async (req, res) => {
       });
 
       const result = await Promise.all(imagePromises);
-      res.status(200).json(result);
+      return genericErrorHandler(200, result);
     } else {
-      res.status(404).json({ error: errorMessages.noActiveProduct });
+      return genericErrorHandler(404, errorMessages.noActiveProducts);
     }
   } catch (err) {
     console.error("Error fetching Products:", err.message);
-    res.status(500).json({ error: errorMessages.somethingWentWrong });
+    return genericErrorHandler(500, errorMessages.somethingWentWrong);
   }
 });
 
@@ -215,7 +220,7 @@ router.post(
 
       const categoryExists = await Category.exists({ _id: category_id });
       if (!categoryExists) {
-        return res.status(404).json({ error: errorMessages.productCantSave });
+        return genericErrorHandler(404, errorMessages.productCantSave);
       }
 
       const newProduct = new Product({
@@ -237,7 +242,7 @@ router.post(
       res.status(201).json(savedProduct);
     } catch (err) {
       req.log.error("Error creating a new Product:", err.message);
-      res.status(500).json({ error: errorMessages.somethingWentWrong });
+      return genericErrorHandler(500, errorMessages.somethingWentWrong);
     }
   },
 );
@@ -257,9 +262,7 @@ router.put(
           !isValidImageFile(req.file.originalname) ||
           !isValidImageSize(req.file.size)
         ) {
-          return res.status(400).json({
-            error: errorMessages.invalidImageFile,
-          });
+          return genericErrorHandler(404, errorMessages.invalidImageFile);
         }
         product_image = req.file.id;
       }
@@ -276,9 +279,7 @@ router.put(
         if (category_id) {
           const categoryExists = await Category.exists({ _id: category_id });
           if (!categoryExists) {
-            return res
-              .status(404)
-              .json({ error: errorMessages.productCantSave });
+            return genericErrorHandler(404, errorMessages.productCantSave);
           }
         }
 
@@ -309,7 +310,7 @@ router.put(
       res.json(updatedProduct);
     } catch (err) {
       req.log.error("Error updating Product:", err.message);
-      res.status(500).json({ error: errorMessages.somethingWentWrong });
+      return genericErrorHandler(500, errorMessages.somethingWentWrong);
     }
   },
 );
@@ -329,9 +330,7 @@ router.patch(
           !isValidImageFile(req.file.originalname) ||
           !isValidImageSize(req.file.size)
         )
-          return res.status(400).json({
-            error: errorMessages.invalidImageFile,
-          });
+          return genericErrorHandler(400, errorMessages.invalidImageFile);
         product_image = req.file.id;
       }
       // Check if data exists and update the product accordingly
@@ -346,9 +345,7 @@ router.patch(
         if (category_id) {
           const categoryExists = await Category.exists({ _id: category_id });
           if (!categoryExists) {
-            return res
-              .status(404)
-              .json({ error: errorMessages.productCantSave });
+            return genericErrorHandler(404, errorMessages.productCantSave);
           }
         }
 
@@ -376,7 +373,7 @@ router.patch(
       res.json(updatedProduct);
     } catch (err) {
       req.log.error("Error updating Product:", err.message);
-      res.status(500).json({ error: errorMessages.somethingWentWrong });
+      return genericErrorHandler(500, errorMessages.somethingWentWrong);
     }
   },
 );
@@ -387,7 +384,7 @@ router.delete("/:id", async (req, res) => {
     const product = await Product.findOneAndDelete({ _id: req.params.id });
 
     if (!product) {
-      return res.status(404).json({ error: errorMessages.productNotFound });
+      return genericErrorHandler(404, errorMessages.productNotFound);
     }
 
     // Remove image file
@@ -397,12 +394,11 @@ router.delete("/:id", async (req, res) => {
     await db
       .collection("fs.chunks")
       .deleteMany({ _id: new ObjectId(product.product_image) });
-
-    res.json({ message: successMessages.productDeleted });
+    return genericErrorHandler(200, successMessages.productDeleted);
   } catch (err) {
     // Log the error and respond with an error message if something went wrong
     req.log.error("Error deleting Product:", err.message);
-    res.status(500).json({ error: errorMessages.somethingWentWrong });
+    return genericErrorHandler(500, errorMessages.somethingWentWrong);
   }
 });
 

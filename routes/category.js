@@ -8,7 +8,11 @@ import {
   validateMandatoryFields,
 } from "../middleware.js";
 import dotenv from "dotenv";
-import { errorMessages } from "../message.js";
+import {
+  errorMessages,
+  successMessages,
+  genericErrorHandler,
+} from "../message.js";
 dotenv.config();
 const MONGO_URL =
   process.env.NODE_ENV === "production"
@@ -29,12 +33,14 @@ router.get("/:id", async (req, res) => {
 
     // Check if the category exists and is active
     if (!category) {
-      return res.status(404).json({ error: errorMessages.categoryNotFound });
+      // return res.status(404).json({ error: errorMessages.categoryNotFound });
+      let error = { error: errorMessages.categoryNotFound };
+      return genericErrorHandler(404, error);
     }
     res.json(category);
   } catch (err) {
     req.log.error("Error finding Category:", err.message);
-    res.status(500).json({ error: errorMessages.somethingWentWrong });
+    return genericErrorHandler(500, errorMessages.somethingWentWrong);
   }
 });
 
@@ -53,7 +59,7 @@ router.get("/", async (req, res) => {
     }
   } catch (err) {
     req.log.error("Error fetching Categories:", err.message); // Log errors with pino
-    res.status(500).json({ error: errorMessages.somethingWentWrong });
+    return genericErrorHandler(500, errorMessages.somethingWentWrong);
   }
 });
 
@@ -78,7 +84,7 @@ router.post(
       res.status(201).json(savedCategory);
     } catch (err) {
       req.log.error("Error creating a new Category:", err.message);
-      res.status(500).json({ error: errorMessages.somethingWentWrong });
+      return genericErrorHandler(500, errorMessages.somethingWentWrong);
     }
   },
 );
@@ -112,7 +118,7 @@ router.put("/:id", validateUniqueCategoryName, async (req, res) => {
     res.json(updatedCategory);
   } catch (err) {
     req.log.error("Error updating Category:", err.message);
-    res.status(500).json({ error: errorMessages.somethingWentWrong });
+    return genericErrorHandler(500, errorMessages.somethingWentWrong);
   }
 });
 
@@ -149,7 +155,7 @@ router.patch("/:id", validateUniqueCategoryName, async (req, res) => {
     res.json(updatedCategory);
   } catch (err) {
     req.log.error("Error updating Category:", err.message);
-    res.status(500).json({ error: errorMessages.somethingWentWrong });
+    return genericErrorHandler(500, errorMessages.somethingWentWrong);
   }
 });
 
@@ -170,10 +176,10 @@ router.delete("/:id", async (req, res) => {
     //delete images of products
     await db.collection("fs.files").deleteMany({ _id: { $in: productIds } });
     await db.collection("fs.chunks").deleteMany({ _id: { $in: productIds } });
-    res.json({ message: errorMessages.categoryDeleted });
+    return genericErrorHandler(201, successMessages.categoryDeleted);
   } catch (err) {
     req.log.error("Error deleting Category:", err.message);
-    res.status(500).json({ error: errorMessages.somethingWentWrong });
+    return genericErrorHandler(500, errorMessages.somethingWentWrong);
   }
 });
 

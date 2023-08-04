@@ -1,5 +1,8 @@
 import dotenv from "dotenv";
 dotenv.config();
+export function genericErrorHandler(statusCode, errorObject) {
+  return res.status(statusCode).json(errorObject);
+}
 export const errorMessages = {
   imageNotFound: "Image not found",
   noProductsInRange: "There are no products within the range",
